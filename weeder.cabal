@@ -78,6 +78,8 @@ test-suite weeder-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   hs-source-dirs: test
+  build-tool-depends:
+    hspec-discover:hspec-discover
   autogen-modules:
     Paths_weeder
   other-modules:
