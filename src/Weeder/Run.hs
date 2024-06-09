@@ -92,7 +92,23 @@ runWeeder weederConfig@Config{ rootPatterns, typeClassRoots, rootInstances } hie
     -- declarations in the graph. This has a slight performance benefit,
     -- at the cost of having to assume that a non-outputable declaration
     -- will always either be an implicit root or irrelevant.
+    unmatchedPatterns =
+      filter
+        ( \pattern -> 
+            not
+              (any
+                (\d -> pattern `matchTest` displayDeclaration d)
+                (outputableDeclarations analysis))
+        ) rootPatterns  
+    
     roots =
+      ( if not (null unmatchedPatterns)
+        then
+          error "Pattern did not match any declarations: TODO show patterns"
+        else
+          id
+      )
+      $
       Set.filter
         ( \d ->
             any
