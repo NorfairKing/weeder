@@ -135,7 +135,10 @@ runWeeder weederConfig@Config{ rootPatterns, typeClassRoots, rootInstances, root
 
     weeds =
       Map.toList warnings & concatMap \( weedPath, declarations ) ->
-        sortOn fst declarations & map \( (weedPackage, (weedLine, weedCol)) , weedDeclaration ) ->
+        -- Break ties on the source location with the declaration's display name
+        -- so the output order does not depend on the (now Unique-based, and
+        -- hence run-dependent) ordering of 'Set Declaration'.
+        sortOn (\( loc, d ) -> ( loc, displayDeclaration d )) declarations & map \( (weedPackage, (weedLine, weedCol)) , weedDeclaration ) ->
           Weed { weedPrettyPrintedType = Map.lookup weedDeclaration (prettyPrintedType analysis)
                , weedPackage
                , weedPath

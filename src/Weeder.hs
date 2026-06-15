@@ -55,7 +55,7 @@ import Data.Generics.Labels ()
 
 -- ghc
 import GHC.Types.Avail ( AvailInfo, availName, availNames )
-import GHC.Data.FastString ( unpackFS )
+import GHC.Data.FastString ( unpackFS, uniqueOfFS )
 import GHC.Iface.Ext.Types
   ( BindType( RegularBind )
   , ContextInfo( Decl, ValBind, PatternBind, Use, TyDecl, ClassTyDecl, EvidenceVarBind, RecField )
@@ -101,6 +101,7 @@ import GHC.Types.Name
   , isVarOcc
   , occNameString
   )
+import GHC.Types.Name.Occurrence ( occNameFS, occNameSpace )
 import GHC.Types.Unique.FM ( UniqFM, addToUFM_C, lookupUFM, elemUFM )
 import GHC.Types.SrcLoc ( RealSrcSpan, realSrcSpanEnd, realSrcSpanStart, srcLocLine, srcLocCol )
 import GHC.Utils.Monad (anyM)
@@ -132,7 +133,28 @@ data Declaration =
       -- ^ The symbol name of a declaration.
     }
   deriving
-    ( Eq, Ord, Generic, NFData )
+    ( Eq, Generic, NFData )
+
+
+-- | Order declarations by their 'Unique's (which are 'Int's), falling back to
+-- the structural comparison of the module and occurrence name to break ties.
+--
+-- The 'Unique'-based prefix makes the common case a cheap 'Int' comparison
+-- rather than a lexical comparison of module and occurrence names, which the
+-- profile showed to be a hot spot. 'FastString' 'Unique's already back the
+-- 'Eq' instances of 'OccName' and 'ModuleName', so the only possible collision
+-- is on a 'Module' 'Unique'; the structural tie-break keeps this 'Ord'
+-- consistent with the derived 'Eq' in that case (and the ordering is by source
+-- location in the output, so it stays deterministic regardless).
+instance Ord Declaration where
+  compare d1 d2 = cheapCompare d1 d2 <> structuralCompare d1 d2
+    where
+      cheapCompare (Declaration _ o1) (Declaration _ o2) =
+        compare (occNameSpace o1) (occNameSpace o2)
+          <> compare (uniqueOfFS (occNameFS o1)) (uniqueOfFS (occNameFS o2))
+
+      structuralCompare (Declaration m1 o1) (Declaration m2 o2) =
+        compare m1 m2 <> compare o1 o2
 
 
 instance Show Declaration where
