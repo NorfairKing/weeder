@@ -49,8 +49,6 @@ import qualified Data.Map.Strict as Map
 import Data.Sequence ( Seq )
 import Data.Set ( Set )
 import qualified Data.Set as Set
-import Data.Tree (Tree)
-import qualified Data.Tree as Tree
 
 -- generic-lens
 import Data.Generics.Labels ()
@@ -724,13 +722,16 @@ requestEvidence n d = do
 
   where
 
-    names = concat . Tree.flatten $ evidenceUseTree n
+    -- Collect all evidence uses under the node directly. We used to build a
+    -- @Tree [Name]@ and immediately flatten it away; the tree structure was
+    -- pure allocation overhead.
+    names :: [Name]
+    names = evidenceUses n
 
-    evidenceUseTree :: HieAST a -> Tree [Name]
-    evidenceUseTree Node{ sourcedNodeInfo, nodeChildren } = Tree.Node
-      { Tree.rootLabel = concatMap (findEvidenceUse . nodeIdentifiers) (getSourcedNodeInfo sourcedNodeInfo)
-      , Tree.subForest = map evidenceUseTree nodeChildren
-      }
+    evidenceUses :: HieAST a -> [Name]
+    evidenceUses Node{ sourcedNodeInfo, nodeChildren } =
+      concatMap (findEvidenceUse . nodeIdentifiers) (getSourcedNodeInfo sourcedNodeInfo)
+        ++ concatMap evidenceUses nodeChildren
 
 
 -- | Follow the given evidence use back to their instance bindings
